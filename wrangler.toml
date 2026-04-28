@@ -31,9 +31,14 @@ workers_dev = true   # exposes altimist-com-router-production.<account>.workers.
 ALTIMIST_ID_ORIGIN = "https://id.altimist.ai"
 ALTIMIST_ID_APEX = "altimist.com"
 
-# [[env.production.routes]]
-# pattern = "*.altimist.com/.well-known/*"
-# zone_name = "altimist.com"
+[[env.production.routes]]
+pattern = "*.altimist.com/.well-known/*"
+zone_name = "altimist.com"
+
+# Apex route remains commented until *altimist.com* (the apex itself) is
+# flipped to orange-cloud. Today the apex is grey-cloud (direct to Vercel)
+# so a Worker route here would never fire. Flip it via flarectl + uncomment
+# when ready (separate change — apex flip affects the marketing site).
 # [[env.production.routes]]
 # pattern = "altimist.com/.well-known/*"
 # zone_name = "altimist.com"
