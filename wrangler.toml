@@ -9,6 +9,7 @@ compatibility_date = "2026-04-28"
 
 [env.staging]
 name = "altimist-com-router-staging"
+workers_dev = true   # exposes altimist-com-router-staging.<account>.workers.dev for smoke testing before binding altimist.com routes
 
 [env.staging.vars]
 ALTIMIST_ID_ORIGIN = "https://staging.id.altimist.ai"
@@ -23,6 +24,7 @@ ALTIMIST_ID_APEX = "staging.altimist.com"
 
 [env.production]
 name = "altimist-com-router-production"
+workers_dev = true   # exposes altimist-com-router-production.<account>.workers.dev for smoke testing before binding altimist.com routes; flip to false once altimist.com routes are bound and stable
 
 [env.production.vars]
 ALTIMIST_ID_ORIGIN = "https://id.altimist.ai"
