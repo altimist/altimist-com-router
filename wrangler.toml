@@ -1,0 +1,36 @@
+name = "altimist-com-router"
+main = "src/index.ts"
+compatibility_date = "2026-04-28"
+
+# Per-environment configs. Routes are commented out — bind them via
+# Cloudflare dashboard or `flarectl` during the staging-W testbed
+# rollout, then enable here once we're confident in the rollout.
+# (See ADR-012 for the phased cutover plan.)
+
+[env.staging]
+name = "altimist-com-router-staging"
+
+[env.staging.vars]
+ALTIMIST_ID_ORIGIN = "https://staging.id.altimist.ai"
+ALTIMIST_ID_APEX = "staging.altimist.com"
+
+# [[env.staging.routes]]
+# pattern = "*.staging.altimist.com/.well-known/*"
+# zone_name = "altimist.com"
+# [[env.staging.routes]]
+# pattern = "staging.altimist.com/.well-known/*"
+# zone_name = "altimist.com"
+
+[env.production]
+name = "altimist-com-router-production"
+
+[env.production.vars]
+ALTIMIST_ID_ORIGIN = "https://id.altimist.ai"
+ALTIMIST_ID_APEX = "altimist.com"
+
+# [[env.production.routes]]
+# pattern = "*.altimist.com/.well-known/*"
+# zone_name = "altimist.com"
+# [[env.production.routes]]
+# pattern = "altimist.com/.well-known/*"
+# zone_name = "altimist.com"

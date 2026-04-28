@@ -1,0 +1,29 @@
+{
+  "name": "altimist-com-router",
+  "version": "0.1.0",
+  "description": "Cloudflare Worker routing for the altimist.com zone — dispatches /.well-known/* to altimist-id, leaves everything else to corporate-website-v2 (Option W per ADR-012).",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"(no lint configured)\" && exit 0"
+  },
+  "dependencies": {
+    "@altimist/did-publisher": "^0.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "wrangler": "^3.78.0"
+  }
+}
