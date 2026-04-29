@@ -200,14 +200,17 @@ CI deploy needs a `CLOUDFLARE_API_TOKEN` GitHub secret (Workers-scoped). See [`.
 
 Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100::` proxied) — no Vercel origin behind the wildcard. CF Universal SSL provisions the edge cert.
 
-**Production (deployed 2026-04-29):**
-- `*.altimist.com/.well-known/*` → Worker ✓ bound
-- `altimist.com/.well-known/*` → Worker — **deferred** (apex grey-cloud unchanged; flip + bind in a separate change)
-- `altimist.com` apex and `www.altimist.com` continue grey-cloud to Vercel for the marketing site (Worker never sees these)
+**Production (deployed 2026-04-29 — fully live):**
+- `*.altimist.com/.well-known/*` → Worker ✓ bound + firing
+- `altimist.com/.well-known/*` → Worker ✓ bound + firing (apex orange-cloud)
+- `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these — route patterns only match `.well-known/*`)
+- `www.altimist.com` → grey-cloud to Vercel (Worker never sees)
+
+CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was required to avoid a CF↔Vercel HTTP→HTTPS redirect loop on the apex.
 
 **Staging (deployed 2026-04-29):**
-- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound
-- `staging.altimist.com/.well-known/*` → Worker ✓ bound
+- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound, but **TLS handshake fails** — two-level deep wildcard not covered by free Universal SSL. ACM ($10/mo) would fix; for now, smoke-test via `<handle>.altimist.com` against prod altimist-id.
+- `staging.altimist.com/.well-known/*` → Worker ✓ bound + firing (one-level deep — covered by the production `*.altimist.com` cert)
 
 The phased rollout still applies: Worker route patterns only cover `.well-known/*` for now. Phase 2b will extend to non-`.well-known` paths under the wildcard with subdomain-to-path translation.
 

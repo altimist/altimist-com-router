@@ -57,12 +57,12 @@ CI deploys on push to `staging` or `main` via [`.github/workflows/deploy.yml`](.
 Bound via `wrangler.toml`. The wildcard DNS (`*.altimist.com` and `*.staging.altimist.com`) sinks to `AAAA 100::` proxied — no Vercel origin behind the wildcard; the Worker is the canonical owner of all traffic on those hostnames. CF Universal SSL provisions the edge cert (Vercel's `_acme-challenge.altimist.com` NS delegation was removed per ADR-013 to unblock DCV).
 
 **Production (deployed 2026-04-29):**
-- `*.altimist.com/.well-known/*` → Worker ✓ bound
-- `altimist.com/.well-known/*` → Worker — **deferred** (apex grey-cloud unchanged for now to protect the marketing site; flip + bind separately)
+- `*.altimist.com/.well-known/*` → Worker ✓ bound + firing
+- `altimist.com/.well-known/*` → Worker ✓ bound + firing (apex orange-cloud; CF SSL mode "Full (strict)")
 
 **Staging (deployed 2026-04-29):**
-- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound
-- `staging.altimist.com/.well-known/*` → Worker ✓ bound
+- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound (TLS handshake fails — two-level wildcard not covered by free Universal SSL; needs ACM for faithful staging-W)
+- `staging.altimist.com/.well-known/*` → Worker ✓ bound + firing (one-level deep, covered by `*.altimist.com` Universal SSL cert)
 
 ## Related
 
