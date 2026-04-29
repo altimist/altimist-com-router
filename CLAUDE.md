@@ -144,11 +144,27 @@ Projects that don't deploy to Vercel (e.g. CLI packages, Databricks workloads, D
 
 ## Project
 
-`altimist-com-router` is a Cloudflare Worker that owns request routing for the `altimist.com` zone (and `*.altimist.com` wildcard). Its job is small: dispatch `/.well-known/*` requests to [altimist-id](https://github.com/altimist/altimist-id)'s Resolver API, return 404 for non-matching `.well-known/*` paths, and stay out of the way of everything else (which the CF route pattern leaves alone — the Worker only sees requests matching its bound routes).
+`altimist-com-router` is a Cloudflare Worker that **owns the `*.altimist.com` wildcard end-to-end** (no Vercel origin behind it). Its job is dispatch:
 
-Phase 2a of [F-010](https://github.com/altimist/altimist-id/blob/main/docs/specs/F-010-finternet-native-identity-phase-2a.md). Decision rationale in [ADR-012](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-012-adopt-separate-routing-layer-for-resolver-surface.md). Topology comparison in [`altimist-id/docs/architecture/future-architecture.md`](https://github.com/altimist/altimist-id/blob/main/docs/architecture/future-architecture.md) (Option W).
+- `/.well-known/*` requests → [altimist-id](https://github.com/altimist/altimist-id)'s Resolver API
+- (Phase 2b) `<handle>.altimist.com/<path>` → single Vercel-attached rendering backend, translated to `<vercel-host>/u/<handle>/<path>`
+- Anything else under `/.well-known/*` → 404
+- Anything else on the wildcard today → 404
 
-The Worker code itself is ~20 LOC; nearly all logic lives in [`@altimist/did-publisher`](https://github.com/altimist/did-publisher) (the `routeResolverRequest` export). This repo is glue + config + deploy plumbing.
+The Worker is the **routing layer** per [ADR-012](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-012-adopt-separate-routing-layer-for-resolver-surface.md), refined into the **end-to-end-wildcard-owner shape** by [ADR-013](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-013-take-vercel-off-altimist-com-wildcard.md) (Option D). The Vercel cert collision that triggered ADR-013 is documented there. Topology comparison: [`altimist-id/docs/architecture/future-architecture.md`](https://github.com/altimist/altimist-id/blob/main/docs/architecture/future-architecture.md).
+
+The `altimist.com` apex and `www.altimist.com` are **not** owned by this Worker — those are grey-cloud direct to Vercel for the marketing site. The Worker only fires on `*.altimist.com` (and `*.staging.altimist.com`) wildcard subdomains.
+
+The Worker code itself is ~20 LOC; nearly all logic lives in [`@altimist/did-publisher`](https://github.com/altimist/did-publisher) v0.2+ (the `routeResolverRequest` export). This repo is glue + config + deploy plumbing.
+
+### Constraint on Phase 2b rendering backend
+
+When Phase 2b ships, the Worker will translate `<handle>.altimist.com/<path>` into a path-based call against a single Vercel-attached hostname. To keep the Worker in pure routing territory (no response body or cookie rewriting):
+
+- The rendering backend **must use relative URLs** for all assets (no absolute `https://altimist.com/...` URLs in HTML, CSS, or JS).
+- Publicly-routed paths **must be stateless** (no Set-Cookie on profile pages — auth happens elsewhere, e.g. on `id.altimist.ai`).
+
+If those constraints feel binding, the right answer is to reshape the rendering layer or adopt Cloudflare for SaaS — not to add body/cookie rewriting to the Worker.
 
 ## Stack
 
@@ -182,18 +198,18 @@ CI deploy needs a `CLOUDFLARE_API_TOKEN` GitHub secret (Workers-scoped). See [`.
 
 ## Routing topology
 
-The Worker is bound to CF routes via `wrangler.toml` (currently commented out — bind manually during the staging-W testbed rollout, then enable here once stable).
+Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100::` proxied) — no Vercel origin behind the wildcard. CF Universal SSL provisions the edge cert.
 
-**Production target:**
-- `*.altimist.com/.well-known/*` → Worker
-- `altimist.com/.well-known/*` → Worker
-- Everything else on `*.altimist.com` and `altimist.com` → corporate-website-v2 unchanged (the Worker doesn't see these requests)
+**Production (deployed 2026-04-29):**
+- `*.altimist.com/.well-known/*` → Worker ✓ bound
+- `altimist.com/.well-known/*` → Worker — **deferred** (apex grey-cloud unchanged; flip + bind in a separate change)
+- `altimist.com` apex and `www.altimist.com` continue grey-cloud to Vercel for the marketing site (Worker never sees these)
 
-**Staging target:**
-- `*.staging.altimist.com/.well-known/*` → Worker
-- `staging.altimist.com/.well-known/*` → Worker
+**Staging (deployed 2026-04-29):**
+- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound
+- `staging.altimist.com/.well-known/*` → Worker ✓ bound
 
-The phased rollout means the Worker route pattern is *only* for `.well-known/*`. Non-`.well-known` requests bypass the Worker entirely and continue routing to corporate-website-v2 via the existing CNAME.
+The phased rollout still applies: Worker route patterns only cover `.well-known/*` for now. Phase 2b will extend to non-`.well-known` paths under the wildcard with subdomain-to-path translation.
 
 ## Deployment
 
