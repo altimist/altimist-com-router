@@ -12,7 +12,7 @@ name = "altimist-com-router-staging"
 workers_dev = true   # also publish to <name>.<account>.workers.dev for smoke testing
 
 [env.staging.vars]
-ALTIMIST_ID_ORIGIN = "https://staging.id.altimist.ai"
+ALTIMIST_ID_ORIGIN = "https://staging.altimist.id"
 ALTIMIST_ID_APEX = "staging.altimist.com"
 
 [[env.staging.routes]]
@@ -28,7 +28,7 @@ name = "altimist-com-router-production"
 workers_dev = true   # exposes altimist-com-router-production.<account>.workers.dev for smoke testing before binding altimist.com routes; flip to false once altimist.com routes are bound and stable
 
 [env.production.vars]
-ALTIMIST_ID_ORIGIN = "https://id.altimist.ai"
+ALTIMIST_ID_ORIGIN = "https://altimist.id"
 ALTIMIST_ID_APEX = "altimist.com"
 
 [[env.production.routes]]

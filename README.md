@@ -40,7 +40,7 @@ Environment variables live per-environment in [`wrangler.toml`](./wrangler.toml)
 
 | Variable | Staging | Production |
 |---|---|---|
-| `ALTIMIST_ID_ORIGIN` | `https://staging.id.altimist.ai` | `https://id.altimist.ai` |
+| `ALTIMIST_ID_ORIGIN` | `https://staging.altimist.id` | `https://altimist.id` |
 | `ALTIMIST_ID_APEX` | `staging.altimist.com` | `altimist.com` |
 
 ## Deployment

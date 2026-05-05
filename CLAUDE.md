@@ -162,7 +162,7 @@ The Worker code itself is ~20 LOC; nearly all logic lives in [`@altimist/did-pub
 When Phase 2b ships, the Worker will translate `<handle>.altimist.com/<path>` into a path-based call against a single Vercel-attached hostname. To keep the Worker in pure routing territory (no response body or cookie rewriting):
 
 - The rendering backend **must use relative URLs** for all assets (no absolute `https://altimist.com/...` URLs in HTML, CSS, or JS).
-- Publicly-routed paths **must be stateless** (no Set-Cookie on profile pages — auth happens elsewhere, e.g. on `id.altimist.ai`).
+- Publicly-routed paths **must be stateless** (no Set-Cookie on profile pages — auth happens elsewhere, e.g. on `altimist.id`).
 
 If those constraints feel binding, the right answer is to reshape the rendering layer or adopt Cloudflare for SaaS — not to add body/cookie rewriting to the Worker.
 
@@ -191,7 +191,7 @@ Environment variables are set per-environment in [`wrangler.toml`](./wrangler.to
 
 | Variable | Purpose | Staging | Production |
 |---|---|---|---|
-| `ALTIMIST_ID_ORIGIN` | Base URL for altimist-id Resolver API | `https://staging.id.altimist.ai` | `https://id.altimist.ai` |
+| `ALTIMIST_ID_ORIGIN` | Base URL for altimist-id Resolver API | `https://staging.altimist.id` | `https://altimist.id` |
 | `ALTIMIST_ID_APEX` | Host treated as "no handle here" | `staging.altimist.com` | `altimist.com` |
 
 CI deploy needs a `CLOUDFLARE_API_TOKEN` GitHub secret (Workers-scoped). See [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml).
