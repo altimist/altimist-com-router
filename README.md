@@ -1,12 +1,12 @@
 # altimist-com-router
 
-Cloudflare Worker that **owns the `*.altimist.com` wildcard end-to-end** and routes its traffic. Dispatches `/.well-known/*` requests to [altimist-id](https://github.com/altimist/altimist-id)'s Resolver API. Phase 2b will add a subdomain-to-path translation that forwards `<handle>.altimist.com/<path>` to a single Vercel-attached rendering backend.
+Cloudflare Worker that **owns the resolver wildcards end-to-end** — `*.altimist.com` (production) and `*.altimist.dev` (staging). Dispatches `/.well-known/*` requests to [altimist-id](https://github.com/altimist/altimist-id)'s Resolver API. Phase 2b will add a subdomain-to-path translation that forwards `<handle>.altimist.com/<path>` to a single Vercel-attached rendering backend.
 
 Implements **Option D** per [ADR-013](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-013-take-vercel-off-altimist-com-wildcard.md), which refines [ADR-012](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-012-adopt-separate-routing-layer-for-resolver-surface.md)'s Option W. Topology comparison: [`altimist-id/docs/architecture/future-architecture.md`](https://github.com/altimist/altimist-id/blob/main/docs/architecture/future-architecture.md).
 
 ## What it does
 
-| Path on `altimist.com` / `staging.altimist.com` | Routes to |
+| Path on `altimist.com` (prod) / `altimist.dev` (staging) | Routes to |
 |---|---|
 | `<handle>.altimist.com/.well-known/did.json` | `altimist-id`'s `/api/resolver/did/<handle>` |
 | `altimist.com/.well-known/revocations.json` | `altimist-id`'s `/api/resolver/revocations` |
@@ -31,7 +31,7 @@ npm run typecheck    # tsc --noEmit
 Local request:
 
 ```bash
-curl -H "Host: patrick.staging.altimist.com" http://localhost:8787/.well-known/did.json
+curl -H "Host: patrick.altimist.dev" http://localhost:8787/.well-known/did.json
 ```
 
 ## Configuration
@@ -41,7 +41,7 @@ Environment variables live per-environment in [`wrangler.toml`](./wrangler.toml)
 | Variable | Staging | Production |
 |---|---|---|
 | `ALTIMIST_ID_ORIGIN` | `https://staging.altimist.id` | `https://altimist.id` |
-| `ALTIMIST_ID_APEX` | `staging.altimist.com` | `altimist.com` |
+| `ALTIMIST_ID_APEX` | `altimist.dev` | `altimist.com` |
 
 ## Deployment
 
@@ -54,15 +54,17 @@ CI deploys on push to `staging` or `main` via [`.github/workflows/deploy.yml`](.
 
 ## Cloudflare route bindings
 
-Bound via `wrangler.toml`. The wildcard DNS (`*.altimist.com` and `*.staging.altimist.com`) sinks to `AAAA 100::` proxied — no Vercel origin behind the wildcard; the Worker is the canonical owner of all traffic on those hostnames. CF Universal SSL provisions the edge cert (Vercel's `_acme-challenge.altimist.com` NS delegation was removed per ADR-013 to unblock DCV).
+Bound via `wrangler.toml`. Wildcard DNS sinks to `AAAA 100::` proxied — no Vercel origin behind the wildcards; the Worker is the canonical owner of all traffic on those hostnames. CF Universal SSL provisions the edge certs.
 
-**Production (deployed 2026-04-29):**
+**Production (`altimist.com`, deployed 2026-04-29):**
 - `*.altimist.com/.well-known/*` → Worker ✓ bound + firing
 - `altimist.com/.well-known/*` → Worker ✓ bound + firing (apex orange-cloud; CF SSL mode "Full (strict)")
 
-**Staging (deployed 2026-04-29):**
-- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound (TLS handshake fails — two-level wildcard not covered by free Universal SSL; needs ACM for faithful staging-W)
-- `staging.altimist.com/.well-known/*` → Worker ✓ bound + firing (one-level deep, covered by `*.altimist.com` Universal SSL cert)
+**Staging (`altimist.dev`, migrated 2026-05-05):**
+- `*.altimist.dev/.well-known/*` → Worker
+- `altimist.dev/.well-known/*` → Worker
+
+Replaces the previous `staging.altimist.com` / `*.staging.altimist.com` two-level-wildcard pattern, which had a free-Universal-SSL coverage gap on the inner wildcard. A dedicated apex (`altimist.dev`) lets free Universal SSL cover the whole staging surface cleanly.
 
 ## Related
 

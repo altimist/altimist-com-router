@@ -153,7 +153,7 @@ Projects that don't deploy to Vercel (e.g. CLI packages, Databricks workloads, D
 
 The Worker is the **routing layer** per [ADR-012](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-012-adopt-separate-routing-layer-for-resolver-surface.md), refined into the **end-to-end-wildcard-owner shape** by [ADR-013](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-013-take-vercel-off-altimist-com-wildcard.md) (Option D). The Vercel cert collision that triggered ADR-013 is documented there. Topology comparison: [`altimist-id/docs/architecture/future-architecture.md`](https://github.com/altimist/altimist-id/blob/main/docs/architecture/future-architecture.md).
 
-The `altimist.com` apex and `www.altimist.com` are **not** owned by this Worker — those are grey-cloud direct to Vercel for the marketing site. The Worker only fires on `*.altimist.com` (and `*.staging.altimist.com`) wildcard subdomains.
+The `altimist.com` apex and `www.altimist.com` are **not** owned by this Worker — those are grey-cloud direct to Vercel for the marketing site. The Worker only fires on `*.altimist.com` wildcard subdomains (production) and `*.altimist.dev` wildcard subdomains (staging).
 
 The Worker code itself is ~20 LOC; nearly all logic lives in [`@altimist/did-publisher`](https://github.com/altimist/did-publisher) v0.2+ (the `routeResolverRequest` export). This repo is glue + config + deploy plumbing.
 
@@ -192,7 +192,7 @@ Environment variables are set per-environment in [`wrangler.toml`](./wrangler.to
 | Variable | Purpose | Staging | Production |
 |---|---|---|---|
 | `ALTIMIST_ID_ORIGIN` | Base URL for altimist-id Resolver API | `https://staging.altimist.id` | `https://altimist.id` |
-| `ALTIMIST_ID_APEX` | Host treated as "no handle here" | `staging.altimist.com` | `altimist.com` |
+| `ALTIMIST_ID_APEX` | Host treated as "no handle here" | `altimist.dev` | `altimist.com` |
 
 CI deploy needs a `CLOUDFLARE_API_TOKEN` GitHub secret (Workers-scoped). See [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml).
 
@@ -208,9 +208,11 @@ Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100
 
 CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was required to avoid a CF↔Vercel HTTP→HTTPS redirect loop on the apex.
 
-**Staging (deployed 2026-04-29):**
-- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound, but **TLS handshake fails** — two-level deep wildcard not covered by free Universal SSL. ACM ($10/mo) would fix; for now, smoke-test via `<handle>.altimist.com` against prod altimist-id.
-- `staging.altimist.com/.well-known/*` → Worker ✓ bound + firing (one-level deep — covered by the production `*.altimist.com` cert)
+**Staging (migrated 2026-05-05 to dedicated `altimist.dev` apex):**
+- `*.altimist.dev/.well-known/*` → Worker (staging env)
+- `altimist.dev/.well-known/*` → Worker (staging env)
+
+Replaces the previous `staging.altimist.com` two-level-wildcard pattern (which had a free-Universal-SSL coverage gap on `*.staging.altimist.com`). Using a dedicated apex lets free Universal SSL cover the new wildcard cleanly.
 
 The phased rollout still applies: Worker route patterns only cover `.well-known/*` for now. Phase 2b will extend to non-`.well-known` paths under the wildcard with subdomain-to-path translation.
 
@@ -228,7 +230,7 @@ Local dev:
 ```bash
 wrangler login                # one-time, opens browser
 npm run dev                   # http://localhost:8787
-curl -H "Host: patrick.staging.altimist.com" http://localhost:8787/.well-known/did.json
+curl -H "Host: patrick.altimist.dev" http://localhost:8787/.well-known/did.json
 ```
 
 ## What this Worker does NOT do
