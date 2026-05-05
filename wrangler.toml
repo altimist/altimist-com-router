@@ -13,15 +13,15 @@ workers_dev = true   # also publish to <name>.<account>.workers.dev for smoke te
 
 [env.staging.vars]
 ALTIMIST_ID_ORIGIN = "https://staging.altimist.id"
-ALTIMIST_ID_APEX = "staging.altimist.com"
+ALTIMIST_ID_APEX = "altimist.dev"
 
 [[env.staging.routes]]
-pattern = "*.staging.altimist.com/.well-known/*"
-zone_name = "altimist.com"
+pattern = "*.altimist.dev/.well-known/*"
+zone_name = "altimist.dev"
 
 [[env.staging.routes]]
-pattern = "staging.altimist.com/.well-known/*"
-zone_name = "altimist.com"
+pattern = "altimist.dev/.well-known/*"
+zone_name = "altimist.dev"
 
 [env.production]
 name = "altimist-com-router-production"
