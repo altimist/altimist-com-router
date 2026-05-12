@@ -148,24 +148,23 @@ Projects that don't deploy to Vercel (e.g. CLI packages, Databricks workloads, D
 
 - `/.well-known/*` requests → [altimist-id](https://github.com/altimist/altimist-id)'s Resolver API
 - `<apex>/users/<handle>/did.json` (F-011 path-form DIDs) → altimist-id Resolver with `?form=path`
-- (Phase 2b cont'd) `<handle>.altimist.com/<path>` → single Vercel-attached rendering backend, translated to `<vercel-host>/u/<handle>/<path>`
-- Anything else under `/.well-known/*` → 404
-- Anything else on the wildcard today → 404
+- `<handle>.<apex>/<path>` (any other path on a wildcard subdomain) → proxied to `<apex>/<path>` with an `x-altimist-host` header carrying the original host, so [corporate-website-v2](https://github.com/altimist/corporate-website-v2) middleware can render the subdomain's public profile
+- Anything else on the apex → 404 (Worker route patterns don't catch non-`.well-known` apex traffic; CF DNS sends those straight to Vercel)
 
 The Worker is the **routing layer** per [ADR-012](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-012-adopt-separate-routing-layer-for-resolver-surface.md), refined into the **end-to-end-wildcard-owner shape** by [ADR-013](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-013-take-vercel-off-altimist-com-wildcard.md) (Option D). The Vercel cert collision that triggered ADR-013 is documented there. Topology comparison: [`altimist-id/docs/architecture/future-architecture.md`](https://github.com/altimist/altimist-id/blob/main/docs/architecture/future-architecture.md).
 
-The `altimist.com` apex and `www.altimist.com` are **not** owned by this Worker — those are grey-cloud direct to Vercel for the marketing site. The Worker only fires on `*.altimist.com` (and `*.staging.altimist.com`) wildcard subdomains.
+The `altimist.com` apex and `www.altimist.com` are **not** owned by this Worker — those are grey-cloud direct to Vercel for the marketing site. The Worker only fires on `*.altimist.com` wildcard subdomains (production) and `*.altimist.dev` wildcard subdomains (staging).
 
-The Worker code itself is ~20 LOC; nearly all logic lives in [`@altimist/did-publisher`](https://github.com/altimist/did-publisher) v0.2+ (the `routeResolverRequest` export). This repo is glue + config + deploy plumbing.
+DID-resolution logic lives in [`@altimist/did-publisher`](https://github.com/altimist/did-publisher) v0.2+ (the `routeResolverRequest` export). The subdomain proxy branch lives in this repo's `src/index.ts` — it's outside did-publisher's concern (DID resolution) and small enough to keep inline.
 
-### Constraint on Phase 2b rendering backend
+### Subdomain proxy contract
 
-When Phase 2b ships, the Worker will translate `<handle>.altimist.com/<path>` into a path-based call against a single Vercel-attached hostname. To keep the Worker in pure routing territory (no response body or cookie rewriting):
+The Worker proxies `<handle>.<apex>/<path>` to `<apex>/<path>` and sets `x-altimist-host: <handle>.<apex>`. Corporate-website-v2's `src/middleware.ts` reads `x-altimist-host` first, falling back to the `host` header, then rewrites the request to `/public/<handle>`. To keep the Worker in pure routing territory (no response body or cookie rewriting):
 
-- The rendering backend **must use relative URLs** for all assets (no absolute `https://altimist.com/...` URLs in HTML, CSS, or JS).
-- Publicly-routed paths **must be stateless** (no Set-Cookie on profile pages — auth happens elsewhere, e.g. on `altimist.id`).
+- The rendering backend **must use relative URLs** for all assets (no absolute `https://altimist.com/...` URLs in HTML, CSS, or JS — otherwise the browser would navigate away from the subdomain).
+- The NextAuth cookie domain must be `.altimist.com` / `.altimist.dev` (already configured in `auth-config.ts`) so sessions are shared across subdomains.
 
-If those constraints feel binding, the right answer is to reshape the rendering layer or adopt Cloudflare for SaaS — not to add body/cookie rewriting to the Worker.
+If those constraints feel binding, the right answer is to reshape the rendering layer — not to add body/cookie rewriting to the Worker.
 
 ## Stack
 
@@ -193,7 +192,7 @@ Environment variables are set per-environment in [`wrangler.toml`](./wrangler.to
 | Variable | Purpose | Staging | Production |
 |---|---|---|---|
 | `ALTIMIST_ID_ORIGIN` | Base URL for altimist-id Resolver API | `https://staging.altimist.id` | `https://altimist.id` |
-| `ALTIMIST_ID_APEX` | Host treated as "no handle here" | `staging.altimist.com` | `altimist.com` |
+| `ALTIMIST_ID_APEX` | Host treated as "no handle here" | `altimist.dev` | `altimist.com` |
 
 CI deploy needs a `CLOUDFLARE_API_TOKEN` GitHub secret (Workers-scoped). See [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml).
 
@@ -201,21 +200,21 @@ CI deploy needs a `CLOUDFLARE_API_TOKEN` GitHub secret (Workers-scoped). See [`.
 
 Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100::` proxied) — no Vercel origin behind the wildcard. CF Universal SSL provisions the edge cert.
 
-**Production (deployed 2026-04-29 — fully live):**
-- `*.altimist.com/.well-known/*` → Worker ✓ bound + firing
-- `altimist.com/.well-known/*` → Worker ✓ bound + firing (apex orange-cloud)
-- `altimist.com/users/*` → Worker ✓ bound (F-011 path-form DIDs — CF route patterns forbid wildcards in the middle of a path, so we bind the broader `/users/*` and let `routeResolverRequest` filter to the `/users/<handle>/did.json` leaf; everything else under `/users/*` returns the Worker's 404 fallback)
-- `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these — route patterns only match `.well-known/*` and `/users/*`)
+**Production:**
+- `*.altimist.com/*` → Worker (catch-all; resolver paths dispatch internally to altimist-id, everything else is proxied to `altimist.com` with `x-altimist-host`)
+- `altimist.com/.well-known/*` → Worker (apex resolver surface, orange-cloud)
+- `altimist.com/users/*` → Worker (F-011 path-form DIDs — CF route patterns forbid wildcards mid-path, so we bind the broader `/users/*` and let `routeResolverRequest` filter to the `/users/<handle>/did.json` leaf; everything else under `/users/*` returns the Worker's 404 fallback)
+- `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these)
 - `www.altimist.com` → grey-cloud to Vercel (Worker never sees)
 
 CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was required to avoid a CF↔Vercel HTTP→HTTPS redirect loop on the apex.
 
-**Staging (deployed 2026-04-29):**
-- `*.staging.altimist.com/.well-known/*` → Worker ✓ bound, but **TLS handshake fails** — two-level deep wildcard not covered by free Universal SSL. ACM ($10/mo) would fix; for now, smoke-test via `<handle>.altimist.com` against prod altimist-id.
-- `staging.altimist.com/.well-known/*` → Worker ✓ bound + firing (one-level deep — covered by the production `*.altimist.com` cert)
-- `staging.altimist.com/users/*` → Worker bound for F-011 (one-level deep, same cert coverage as the apex `.well-known` route)
+**Staging (dedicated `altimist.dev` apex):**
+- `*.altimist.dev/*` → Worker (catch-all; same dispatch logic as production)
+- `altimist.dev/.well-known/*` → Worker (apex resolver surface)
+- `altimist.dev/users/*` → Worker (F-011 path-form, same shape as production)
 
-The phased rollout still applies: Worker route patterns cover `.well-known/*` + `/users/*` today. Future Phase 2b work will extend to non-leaf paths under the wildcard with subdomain-to-path translation.
+The staging surface lives on `altimist.dev` rather than `staging.altimist.com` because (a) `altimist.dev` is the corporate-website-v2 staging environment anyway, and (b) a one-level wildcard is covered by free Universal SSL, whereas the previous two-level `*.staging.altimist.com` was not.
 
 ## Deployment
 
@@ -231,7 +230,7 @@ Local dev:
 ```bash
 wrangler login                # one-time, opens browser
 npm run dev                   # http://localhost:8787
-curl -H "Host: patrick.staging.altimist.com" http://localhost:8787/.well-known/did.json
+curl -H "Host: patrick.altimist.dev" http://localhost:8787/.well-known/did.json
 ```
 
 ## What this Worker does NOT do
@@ -239,4 +238,4 @@ curl -H "Host: patrick.staging.altimist.com" http://localhost:8787/.well-known/d
 - Generate any DID document content (altimist-id is the source of truth)
 - Cache state itself (Cloudflare's edge cache handles this; the Worker just sets `Cache-Control` headers via the upstream proxy)
 - Authenticate or rate-limit requests (these are altimist-id's job, or future Worker extensions)
-- Handle any path that isn't `/.well-known/did.json`, `/.well-known/revocations.json`, `/.well-known/team-issuers/<team>.json`, or `/users/<handle>/did.json` (F-011 path-form, apex-only) — those return 404
+- Rewrite response bodies or cookies — see "Subdomain proxy contract" above for the constraints this imposes on the rendering backend

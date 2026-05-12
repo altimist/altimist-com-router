@@ -13,15 +13,29 @@ workers_dev = true   # also publish to <name>.<account>.workers.dev for smoke te
 
 [env.staging.vars]
 ALTIMIST_ID_ORIGIN = "https://staging.altimist.id"
-ALTIMIST_ID_APEX = "staging.altimist.com"
+ALTIMIST_ID_APEX = "altimist.dev"
+
+# Subdomain catch-all: proxied through to altimist.dev with x-altimist-host.
+# Subsumes *.altimist.dev/.well-known/* (handled by the same Worker via
+# resolver dispatch in src/index.ts).
+[[env.staging.routes]]
+pattern = "*.altimist.dev/*"
+zone_name = "altimist.dev"
 
 [[env.staging.routes]]
-pattern = "*.staging.altimist.com/.well-known/*"
-zone_name = "altimist.com"
+pattern = "altimist.dev/.well-known/*"
+zone_name = "altimist.dev"
 
+# F-011 path-form did.json. CF Worker route patterns only allow
+# wildcards at the start of the hostname OR end of the path, so we
+# can't bind `<apex>/users/*/did.json` directly (error code 10022 on
+# deploy). Bind the broader `<apex>/users/*` and let the Worker
+# filter: routeResolverRequest matches the PATH_FORM_DID regex
+# (`/users/<handle>/did.json`) and proxies to altimist-id; everything
+# else under /users/* returns null → the Worker's 404 fallback.
 [[env.staging.routes]]
-pattern = "staging.altimist.com/.well-known/*"
-zone_name = "altimist.com"
+pattern = "altimist.dev/users/*"
+zone_name = "altimist.dev"
 
 # F-011 path-form did.json. CF Worker route patterns only allow
 # wildcards at the start of the hostname OR end of the path, so we
@@ -42,8 +56,11 @@ workers_dev = true   # exposes altimist-com-router-production.<account>.workers.
 ALTIMIST_ID_ORIGIN = "https://altimist.id"
 ALTIMIST_ID_APEX = "altimist.com"
 
+# Subdomain catch-all: proxied through to altimist.com with x-altimist-host.
+# Subsumes *.altimist.com/.well-known/* (handled by the same Worker via
+# resolver dispatch in src/index.ts).
 [[env.production.routes]]
-pattern = "*.altimist.com/.well-known/*"
+pattern = "*.altimist.com/*"
 zone_name = "altimist.com"
 
 [[env.production.routes]]
