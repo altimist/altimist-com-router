@@ -147,7 +147,8 @@ Projects that don't deploy to Vercel (e.g. CLI packages, Databricks workloads, D
 `altimist-com-router` is a Cloudflare Worker that **owns the `*.altimist.com` wildcard end-to-end** (no Vercel origin behind it). Its job is dispatch:
 
 - `/.well-known/*` requests → [altimist-id](https://github.com/altimist/altimist-id)'s Resolver API
-- (Phase 2b) `<handle>.altimist.com/<path>` → single Vercel-attached rendering backend, translated to `<vercel-host>/u/<handle>/<path>`
+- `<apex>/users/<handle>/did.json` (F-011 path-form DIDs) → altimist-id Resolver with `?form=path`
+- (Phase 2b cont'd) `<handle>.altimist.com/<path>` → single Vercel-attached rendering backend, translated to `<vercel-host>/u/<handle>/<path>`
 - Anything else under `/.well-known/*` → 404
 - Anything else on the wildcard today → 404
 
@@ -170,7 +171,7 @@ If those constraints feel binding, the right answer is to reshape the rendering 
 
 - **Cloudflare Workers** (Free tier; <100 LOC of dispatch logic)
 - **TypeScript 5**, ESM-only
-- **`@altimist/did-publisher` v0.2+** for the dispatch + proxy logic
+- **`@altimist/did-publisher` v0.3+** for the dispatch + proxy logic (v0.3 adds the F-011 path-form did.json route; v0.2 was subdomain-only)
 - **Wrangler** for dev / build / deploy
 - **Vitest** for unit tests (mocks `globalThis.fetch`)
 
@@ -203,7 +204,8 @@ Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100
 **Production (deployed 2026-04-29 — fully live):**
 - `*.altimist.com/.well-known/*` → Worker ✓ bound + firing
 - `altimist.com/.well-known/*` → Worker ✓ bound + firing (apex orange-cloud)
-- `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these — route patterns only match `.well-known/*`)
+- `altimist.com/users/*/did.json` → Worker ✓ bound (F-011 path-form DIDs — narrow leaf-pattern so altimist.com's own `/users/<handle>/<other-paths>` never hit the Worker)
+- `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these — route patterns only match `.well-known/*` and `/users/*/did.json`)
 - `www.altimist.com` → grey-cloud to Vercel (Worker never sees)
 
 CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was required to avoid a CF↔Vercel HTTP→HTTPS redirect loop on the apex.
@@ -211,8 +213,9 @@ CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was requir
 **Staging (deployed 2026-04-29):**
 - `*.staging.altimist.com/.well-known/*` → Worker ✓ bound, but **TLS handshake fails** — two-level deep wildcard not covered by free Universal SSL. ACM ($10/mo) would fix; for now, smoke-test via `<handle>.altimist.com` against prod altimist-id.
 - `staging.altimist.com/.well-known/*` → Worker ✓ bound + firing (one-level deep — covered by the production `*.altimist.com` cert)
+- `staging.altimist.com/users/*/did.json` → Worker bound for F-011 (one-level deep, same cert coverage as the apex `.well-known` route)
 
-The phased rollout still applies: Worker route patterns only cover `.well-known/*` for now. Phase 2b will extend to non-`.well-known` paths under the wildcard with subdomain-to-path translation.
+The phased rollout still applies: Worker route patterns cover `.well-known/*` + `/users/*/did.json` today. Future Phase 2b work will extend to non-leaf paths under the wildcard with subdomain-to-path translation.
 
 ## Deployment
 
@@ -236,4 +239,4 @@ curl -H "Host: patrick.staging.altimist.com" http://localhost:8787/.well-known/d
 - Generate any DID document content (altimist-id is the source of truth)
 - Cache state itself (Cloudflare's edge cache handles this; the Worker just sets `Cache-Control` headers via the upstream proxy)
 - Authenticate or rate-limit requests (these are altimist-id's job, or future Worker extensions)
-- Handle any path that isn't `/.well-known/did.json`, `/.well-known/revocations.json`, or `/.well-known/team-issuers/<team>.json` — those return 404
+- Handle any path that isn't `/.well-known/did.json`, `/.well-known/revocations.json`, `/.well-known/team-issuers/<team>.json`, or `/users/<handle>/did.json` (F-011 path-form, apex-only) — those return 404
