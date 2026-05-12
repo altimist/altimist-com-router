@@ -23,6 +23,13 @@ zone_name = "altimist.com"
 pattern = "staging.altimist.com/.well-known/*"
 zone_name = "altimist.com"
 
+# F-011 path-form did.json. Narrow pattern so altimist.com's own
+# /users/<handle>/<other-paths> never hit this Worker — only the
+# did.json leaf is proxied.
+[[env.staging.routes]]
+pattern = "staging.altimist.com/users/*/did.json"
+zone_name = "altimist.com"
+
 [env.production]
 name = "altimist-com-router-production"
 workers_dev = true   # exposes altimist-com-router-production.<account>.workers.dev for smoke testing before binding altimist.com routes; flip to false once altimist.com routes are bound and stable
@@ -37,4 +44,11 @@ zone_name = "altimist.com"
 
 [[env.production.routes]]
 pattern = "altimist.com/.well-known/*"
+zone_name = "altimist.com"
+
+# F-011 path-form did.json. Narrow pattern so altimist.com's own
+# /users/<handle>/<other-paths> never hit this Worker — only the
+# did.json leaf is proxied.
+[[env.production.routes]]
+pattern = "altimist.com/users/*/did.json"
 zone_name = "altimist.com"

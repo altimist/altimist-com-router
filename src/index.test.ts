@@ -90,4 +90,22 @@ describe("altimist-com-router fetch handler", () => {
       expect.any(Object),
     );
   });
+
+  it("dispatches path-form did.json on the apex to altimist-id Resolver with ?form=path (F-011)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: "did:web:altimist.com:users:alice" }),
+        { status: 200 },
+      ),
+    );
+    const req = new Request("https://altimist.com/users/alice/did.json", {
+      headers: { host: "altimist.com" },
+    });
+    const res = await worker.fetch(req, env);
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://id.altimist.ai/api/resolver/did/alice?form=path",
+      expect.any(Object),
+    );
+  });
 });

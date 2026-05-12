@@ -17,7 +17,7 @@
     "lint": "echo \"(no lint configured)\" && exit 0"
   },
   "dependencies": {
-    "@altimist/did-publisher": "^0.2.0"
+    "@altimist/did-publisher": "^0.3.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240909.0",
