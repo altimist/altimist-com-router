@@ -15,8 +15,11 @@ workers_dev = true   # also publish to <name>.<account>.workers.dev for smoke te
 ALTIMIST_ID_ORIGIN = "https://staging.altimist.id"
 ALTIMIST_ID_APEX = "altimist.dev"
 
+# Subdomain catch-all: proxied through to altimist.dev with x-altimist-host.
+# Subsumes *.altimist.dev/.well-known/* (handled by the same Worker via
+# resolver dispatch in src/index.ts).
 [[env.staging.routes]]
-pattern = "*.altimist.dev/.well-known/*"
+pattern = "*.altimist.dev/*"
 zone_name = "altimist.dev"
 
 [[env.staging.routes]]
@@ -31,8 +34,11 @@ workers_dev = true   # exposes altimist-com-router-production.<account>.workers.
 ALTIMIST_ID_ORIGIN = "https://altimist.id"
 ALTIMIST_ID_APEX = "altimist.com"
 
+# Subdomain catch-all: proxied through to altimist.com with x-altimist-host.
+# Subsumes *.altimist.com/.well-known/* (handled by the same Worker via
+# resolver dispatch in src/index.ts).
 [[env.production.routes]]
-pattern = "*.altimist.com/.well-known/*"
+pattern = "*.altimist.com/*"
 zone_name = "altimist.com"
 
 [[env.production.routes]]
