@@ -204,8 +204,8 @@ Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100
 **Production (deployed 2026-04-29 — fully live):**
 - `*.altimist.com/.well-known/*` → Worker ✓ bound + firing
 - `altimist.com/.well-known/*` → Worker ✓ bound + firing (apex orange-cloud)
-- `altimist.com/users/*/did.json` → Worker ✓ bound (F-011 path-form DIDs — narrow leaf-pattern so altimist.com's own `/users/<handle>/<other-paths>` never hit the Worker)
-- `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these — route patterns only match `.well-known/*` and `/users/*/did.json`)
+- `altimist.com/users/*` → Worker ✓ bound (F-011 path-form DIDs — CF route patterns forbid wildcards in the middle of a path, so we bind the broader `/users/*` and let `routeResolverRequest` filter to the `/users/<handle>/did.json` leaf; everything else under `/users/*` returns the Worker's 404 fallback)
+- `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these — route patterns only match `.well-known/*` and `/users/*`)
 - `www.altimist.com` → grey-cloud to Vercel (Worker never sees)
 
 CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was required to avoid a CF↔Vercel HTTP→HTTPS redirect loop on the apex.
@@ -213,9 +213,9 @@ CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was requir
 **Staging (deployed 2026-04-29):**
 - `*.staging.altimist.com/.well-known/*` → Worker ✓ bound, but **TLS handshake fails** — two-level deep wildcard not covered by free Universal SSL. ACM ($10/mo) would fix; for now, smoke-test via `<handle>.altimist.com` against prod altimist-id.
 - `staging.altimist.com/.well-known/*` → Worker ✓ bound + firing (one-level deep — covered by the production `*.altimist.com` cert)
-- `staging.altimist.com/users/*/did.json` → Worker bound for F-011 (one-level deep, same cert coverage as the apex `.well-known` route)
+- `staging.altimist.com/users/*` → Worker bound for F-011 (one-level deep, same cert coverage as the apex `.well-known` route)
 
-The phased rollout still applies: Worker route patterns cover `.well-known/*` + `/users/*/did.json` today. Future Phase 2b work will extend to non-leaf paths under the wildcard with subdomain-to-path translation.
+The phased rollout still applies: Worker route patterns cover `.well-known/*` + `/users/*` today. Future Phase 2b work will extend to non-leaf paths under the wildcard with subdomain-to-path translation.
 
 ## Deployment
 
