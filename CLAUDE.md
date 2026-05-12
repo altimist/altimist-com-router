@@ -170,7 +170,7 @@ If those constraints feel binding, the right answer is to reshape the rendering 
 
 - **Cloudflare Workers** (Free tier; <100 LOC of dispatch logic)
 - **TypeScript 5**, ESM-only
-- **`@altimist/did-publisher` v0.2+** for the dispatch + proxy logic
+- **`@altimist/did-publisher` v0.3+** for the dispatch + proxy logic (v0.3 adds the F-011 path-form did.json route)
 - **Wrangler** for dev / build / deploy
 - **Vitest** for unit tests (mocks `globalThis.fetch`)
 
@@ -203,6 +203,7 @@ Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100
 **Production:**
 - `*.altimist.com/*` → Worker (catch-all; resolver paths dispatch internally to altimist-id, everything else is proxied to `altimist.com` with `x-altimist-host`)
 - `altimist.com/.well-known/*` → Worker (apex resolver surface, orange-cloud)
+- `altimist.com/users/*` → Worker (F-011 path-form DIDs — CF route patterns forbid wildcards mid-path, so we bind the broader `/users/*` and let `routeResolverRequest` filter to the `/users/<handle>/did.json` leaf; everything else under `/users/*` returns the Worker's 404 fallback)
 - `altimist.com/<other-paths>` → CF → Vercel (marketing site; Worker doesn't see these)
 - `www.altimist.com` → grey-cloud to Vercel (Worker never sees)
 
@@ -211,6 +212,7 @@ CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was requir
 **Staging (dedicated `altimist.dev` apex):**
 - `*.altimist.dev/*` → Worker (catch-all; same dispatch logic as production)
 - `altimist.dev/.well-known/*` → Worker (apex resolver surface)
+- `altimist.dev/users/*` → Worker (F-011 path-form, same shape as production)
 
 The staging surface lives on `altimist.dev` rather than `staging.altimist.com` because (a) `altimist.dev` is the corporate-website-v2 staging environment anyway, and (b) a one-level wildcard is covered by free Universal SSL, whereas the previous two-level `*.staging.altimist.com` was not.
 

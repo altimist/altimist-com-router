@@ -63,10 +63,12 @@ Bound via `wrangler.toml`. Wildcard DNS sinks to `AAAA 100::` proxied — no Ver
 **Production (`altimist.com`):**
 - `*.altimist.com/*` → Worker (catch-all; resolver paths dispatch internally, other paths are proxied to `altimist.com` with `x-altimist-host`)
 - `altimist.com/.well-known/*` → Worker (apex resolver surface; orange-cloud, CF SSL mode "Full (strict)")
+- `altimist.com/users/*` → Worker (F-011 path-form did.json; the broader `/users/*` is required because CF route patterns forbid wildcards mid-path — `routeResolverRequest` filters to the `did.json` leaf)
 
 **Staging (`altimist.dev`):**
 - `*.altimist.dev/*` → Worker (catch-all; same dispatch as production)
 - `altimist.dev/.well-known/*` → Worker
+- `altimist.dev/users/*` → Worker (F-011 path-form, same shape as production)
 
 The staging surface lives on `altimist.dev` rather than `staging.altimist.com` because `altimist.dev` is the corporate-website-v2 staging environment anyway, and a one-level wildcard is covered by free Universal SSL (the previous two-level `*.staging.altimist.com` was not).
 
