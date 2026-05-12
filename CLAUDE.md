@@ -170,7 +170,7 @@ If those constraints feel binding, the right answer is to reshape the rendering 
 
 - **Cloudflare Workers** (Free tier; <100 LOC of dispatch logic)
 - **TypeScript 5**, ESM-only
-- **`@altimist/did-publisher` v0.3+** for the dispatch + proxy logic (v0.3 adds the F-011 path-form did.json route)
+- **`@altimist/did-publisher` v0.3+** for the dispatch + proxy logic (v0.3 adds the F-011 path-form did.json route; v0.2 was subdomain-only)
 - **Wrangler** for dev / build / deploy
 - **Vitest** for unit tests (mocks `globalThis.fetch`)
 

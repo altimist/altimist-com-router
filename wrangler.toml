@@ -37,6 +37,17 @@ zone_name = "altimist.dev"
 pattern = "altimist.dev/users/*"
 zone_name = "altimist.dev"
 
+# F-011 path-form did.json. CF Worker route patterns only allow
+# wildcards at the start of the hostname OR end of the path, so we
+# can't bind `<apex>/users/*/did.json` directly (error code 10022 on
+# deploy). Bind the broader `<apex>/users/*` and let the Worker
+# filter: routeResolverRequest matches the PATH_FORM_DID regex
+# (`/users/<handle>/did.json`) and proxies to altimist-id; everything
+# else under /users/* returns null → the Worker's 404 fallback.
+[[env.staging.routes]]
+pattern = "staging.altimist.com/users/*"
+zone_name = "altimist.com"
+
 [env.production]
 name = "altimist-com-router-production"
 workers_dev = true   # exposes altimist-com-router-production.<account>.workers.dev for smoke testing before binding altimist.com routes; flip to false once altimist.com routes are bound and stable
