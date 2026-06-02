@@ -3,6 +3,7 @@ import { routeResolverRequest } from "@altimist/did-publisher";
 export interface Env {
   ALTIMIST_ID_ORIGIN: string;
   ALTIMIST_ID_APEX: string;
+  VERCEL_ORIGIN: string;
 }
 
 export default {
@@ -13,16 +14,23 @@ export default {
     });
     if (resolverResponse) return resolverResponse;
 
-    // Subdomain proxy: <handle>.<apex>/<path> → <apex>/<path>
-    // The custom x-altimist-host header lets corporate-website-v2 middleware
-    // recover the original subdomain so it rewrites to /public/<handle>.
+    // Rendering proxy: forward every non-resolver request on the apex or a
+    // wildcard subdomain to the Vercel rendering backend. The x-altimist-host
+    // header carries the original host so corporate-website-v2 middleware
+    // renders the right surface — the apex (host === apex) → marketing
+    // homepage; a <handle>.<apex> subdomain → /public/<handle>.
+    //
+    // We target VERCEL_ORIGIN — a cert-stable Vercel hostname — rather than the
+    // apex. In production the apex is fronted by this Worker end-to-end (its A
+    // record points at the CF-only sink), so proxying back to the apex would
+    // loop; VERCEL_ORIGIN bypasses the Worker. See ADR-014.
     const url = new URL(request.url);
     const host = url.hostname;
     const apex = env.ALTIMIST_ID_APEX;
-    if (host !== apex && host.endsWith(`.${apex}`)) {
+    if (host === apex || host.endsWith(`.${apex}`)) {
       const upstream = new URL(
         url.pathname + url.search,
-        `https://${apex}`,
+        `https://${env.VERCEL_ORIGIN}`,
       );
       const proxied = new Request(upstream.toString(), request);
       proxied.headers.set("x-altimist-host", host);
