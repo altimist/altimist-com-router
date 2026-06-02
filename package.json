@@ -1,7 +1,7 @@
 {
   "name": "altimist-com-router",
   "version": "0.1.0",
-  "description": "Cloudflare Worker that fronts the altimist.com zone end-to-end — dispatches /.well-known/* and /users/*/did.json to altimist-id, and proxies all other apex + subdomain traffic to the corporate-website-v2 rendering backend (Option D per ADR-013/ADR-014).",
+  "description": "Cloudflare Worker that fronts the altimist.com zone end-to-end — dispatches /.well-known/* and /users/*/did.json to altimist-id, and proxies all other apex + subdomain traffic to the corporate-website-v2 rendering backend (Option D per ADR-013/ADR-022).",
   "private": true,
   "type": "module",
   "engines": {

@@ -60,7 +60,7 @@ workers_dev = true   # exposes altimist-com-router-production.<account>.workers.
 ALTIMIST_ID_ORIGIN = "https://altimist.id"
 ALTIMIST_ID_APEX = "altimist.com"
 # Rendering backend. The apex (altimist.com) is fronted by this Worker
-# end-to-end (its A record points at the CF-only sink; ADR-014), so the proxy
+# end-to-end (its A record points at the CF-only sink; ADR-022), so the proxy
 # must target a cert-stable Vercel hostname instead of the apex. This is
 # corporate-website-v2's stable production alias; its middleware reads
 # x-altimist-host to render the marketing site (apex) or a /public/<handle>
@@ -84,7 +84,7 @@ zone_name = "altimist.com"
 pattern = "altimist.com/users/*"
 zone_name = "altimist.com"
 
-# Apex catch-all (ADR-014): this Worker now fronts the altimist.com apex
+# Apex catch-all (ADR-022): this Worker now fronts the altimist.com apex
 # end-to-end. Resolver paths (the two more-specific routes above) are dispatched
 # to altimist-id; every other apex path is proxied to VERCEL_ORIGIN (the
 # corporate-website-v2 rendering backend) with x-altimist-host: altimist.com so
