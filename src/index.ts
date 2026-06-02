@@ -23,7 +23,7 @@ export default {
     // We target VERCEL_ORIGIN — a cert-stable Vercel hostname — rather than the
     // apex. In production the apex is fronted by this Worker end-to-end (its A
     // record points at the CF-only sink), so proxying back to the apex would
-    // loop; VERCEL_ORIGIN bypasses the Worker. See ADR-014.
+    // loop; VERCEL_ORIGIN bypasses the Worker. See ADR-022.
     const url = new URL(request.url);
     const host = url.hostname;
     const apex = env.ALTIMIST_ID_APEX;
