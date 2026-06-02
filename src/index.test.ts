@@ -4,6 +4,7 @@ import worker, { type Env } from "./index";
 const env: Env = {
   ALTIMIST_ID_ORIGIN: "https://id.altimist.ai",
   ALTIMIST_ID_APEX: "altimist.com",
+  VERCEL_ORIGIN: "corporate-website-v2-altimists-projects.vercel.app",
 };
 
 describe("altimist-com-router fetch handler", () => {
@@ -11,14 +12,24 @@ describe("altimist-com-router fetch handler", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns 404 for apex non-resolver paths (Worker has no apex catch-all)", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it("proxies apex non-resolver paths to the Vercel rendering backend with x-altimist-host", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("ok", { status: 200 }));
     const req = new Request("https://altimist.com/marketing/page", {
       headers: { host: "altimist.com" },
     });
     const res = await worker.fetch(req, env);
-    expect(res.status).toBe(404);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [proxied, init] = fetchSpy.mock.calls[0];
+    expect((proxied as Request).url).toBe(
+      "https://corporate-website-v2-altimists-projects.vercel.app/marketing/page",
+    );
+    expect((proxied as Request).headers.get("x-altimist-host")).toBe(
+      "altimist.com",
+    );
+    expect((init as RequestInit | undefined)?.redirect).toBe("manual");
   });
 
   it("dispatches did.json on a handle subdomain to altimist-id Resolver", async () => {
@@ -75,6 +86,7 @@ describe("altimist-com-router fetch handler", () => {
     const stagingEnv: Env = {
       ALTIMIST_ID_ORIGIN: "https://staging.id.altimist.ai",
       ALTIMIST_ID_APEX: "altimist.dev",
+      VERCEL_ORIGIN: "altimist.dev",
     };
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -109,7 +121,7 @@ describe("altimist-com-router fetch handler", () => {
     );
   });
 
-  it("proxies subdomain non-resolver paths to the apex with x-altimist-host", async () => {
+  it("proxies subdomain non-resolver paths to the Vercel rendering backend with x-altimist-host", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response("ok", { status: 200 }));
@@ -121,7 +133,7 @@ describe("altimist-com-router fetch handler", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [proxied, init] = fetchSpy.mock.calls[0];
     expect((proxied as Request).url).toBe(
-      "https://altimist.com/profile/portfolio",
+      "https://corporate-website-v2-altimists-projects.vercel.app/profile/portfolio",
     );
     expect((proxied as Request).headers.get("x-altimist-host")).toBe(
       "patrick.altimist.com",
@@ -139,7 +151,7 @@ describe("altimist-com-router fetch handler", () => {
     );
     await worker.fetch(req, env);
     expect((fetchSpy.mock.calls[0][0] as Request).url).toBe(
-      "https://altimist.com/api/foo?bar=baz&qux=1",
+      "https://corporate-website-v2-altimists-projects.vercel.app/api/foo?bar=baz&qux=1",
     );
   });
 
@@ -147,6 +159,7 @@ describe("altimist-com-router fetch handler", () => {
     const stagingEnv: Env = {
       ALTIMIST_ID_ORIGIN: "https://staging.id.altimist.ai",
       ALTIMIST_ID_APEX: "altimist.dev",
+      VERCEL_ORIGIN: "altimist.dev",
     };
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
