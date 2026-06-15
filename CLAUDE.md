@@ -122,6 +122,10 @@ Every material change should leave the project's documentation accurate.
 
 If a needed doc lives in another repo, open a follow-up issue and link it from the PR.
 
+## Reading Documents (.pdf / .docx)
+
+Don't Read `.pdf` or `.docx` files directly — PDFs cost ~1,500–3,000 tokens **per page** (read as page images), and docx isn't natively readable at all. Convert to Markdown first and read/grep the `.md` sidecar (`spec.pdf` → `spec.pdf.md`): run `/doc2md <file>` (PDF → pymupdf4llm, docx → MarkItDown — fixed rules, see the plugin's `docs/specs/F-001-doc2md.md`). With the Altimist plugin (≥ 0.9.0) installed, a hook **auto-redirects `.pdf` reads**; **`.docx` is not auto-redirected** — Claude Code's Read rejects `.docx` as binary before the hook can run, so **always `/doc2md` a docx first**, then read the `.md`. `DOC2MD_OFF=1` opts out, and a Read with an explicit `pages` parameter bypasses it for intentional visual reads (figures, scans).
+
 ## Review & Preview Workflow (Vercel-deployed projects)
 
 Altimist uses a dedicated `staging` branch for pre-production testing on Vercel projects. This exists because Vercel only generates preview URLs for pushes from Vercel team members. Since only **Nathan** and **altimistDEV** hold Vercel seats (deliberate, for cost), per-PR preview URLs are unavailable for most contributors — testing happens on the shared staging deployment instead.
@@ -136,9 +140,27 @@ Altimist uses a dedicated `staging` branch for pre-production testing on Vercel 
 
 **Constraint:** `staging` must always be deployable. Never merge a broken feature into `staging` — it's shared, and a broken staging blocks everyone else's testing.
 
-**Drift between `staging` and `main` is benign.** After merging `staging` → `main`, the new merge commit on `main` means `staging` is "1 commit behind" — but that commit is the merge itself; file contents are identical. The next `staging` → `main` PR will reconcile cleanly without any prior sync. Don't run post-release `main` → `staging` syncs as routine housekeeping.
+**Drift between `staging` and `main` is structural, not content-level.** With `--merge`-style PRs, after each `staging` → `main` promotion `staging` shows as N commits behind `main` (the merge commits themselves), but file contents match exactly. This is the steady state — do **not** run post-release `main` → `staging` syncs as routine housekeeping. They create commit churn without changing any file.
+
+**Exception — when `staging` → `main` shows real conflicts:**
+
+- **Trigger:** parallel feature streams have both landed on `main` while bypassing each other's `staging` (e.g. a hotfix went direct to `main` while another feature was going through `staging`).
+- **Action:** do a one-time `main` → `staging` merge on the `staging` branch, resolve conflicts in favour of `staging`'s prose where it documents current deployed reality, push the merge commit, then proceed with the `staging` → `main` PR.
+- **Trail:** mention "one-time backflow" in the merge commit message so future readers understand the exception isn't routine.
 
 Projects that don't deploy to Vercel (e.g. CLI packages, Databricks workloads, Docker services) may use a simpler flow — see the project's own `CLAUDE.md` for specifics.
+
+## Source of truth — Altimist strategy
+
+Strategic context for this repo lives in [`altimist/altimist-strategy`](https://github.com/altimist/altimist-strategy):
+
+- **Whitepapers** (`whitepapers/`) — canonical theses (e.g. Finternet-Native Identity v1.3). Specs and architecture in this repo must align with the whitepapers relevant to its domain. Divergence must be flagged explicitly with a "Departs from whitepaper" callout or an ADR — never dressed up as derivation.
+- **ADRs** (`decisions/`) — recorded strategic decisions. Treat as binding for the topic they cover.
+- **Themes / epics** (`themes/`, `epics/`) — multi-repo deliveries; align this repo's roadmap with the theme(s) it serves.
+
+Each consumer repo should list the *specific* whitepapers / ADRs that bind it (usually one or two) in its own `CLAUDE.md` Project section — see [altimist-id](https://github.com/altimist/altimist-id/blob/main/CLAUDE.md#source-of-truth--the-altimist-finternet-native-identity-whitepaper) for the pattern.
+
+If a user request asks for something a binding whitepaper or ADR precludes, surface the conflict before writing code. These aren't permanently fixed — but operational artifacts shouldn't drift ahead of strategy without a deliberate revision step.
 
 <!-- Altimist Baseline v5 — END -->
 
