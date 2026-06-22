@@ -182,11 +182,11 @@ If a user request asks for something a binding whitepaper or ADR precludes, surf
 - `/.well-known/*` requests → [altimist-id](https://github.com/altimist/altimist-id)'s Resolver API
 - `<apex>/users/<handle>/did.json` (F-011 path-form DIDs) → altimist-id Resolver with `?form=path`
 - `<handle>.<apex>/<path>` (any other path on a wildcard subdomain) → proxied to `VERCEL_ORIGIN/<path>` with an `x-altimist-host` header carrying the original host, so [corporate-website-v2](https://github.com/altimist/corporate-website-v2) middleware can render the subdomain's public profile
-- Anything else on the production apex (the marketing site) → proxied to `VERCEL_ORIGIN/<path>` with `x-altimist-host: altimist.com` so corporate-website-v2 renders the marketing homepage (ADR-022; the apex `A` record points at the CF sink, so the Worker fronts it end-to-end). On staging, the `altimist.dev` apex has no catch-all route and is served directly by Vercel.
+- Anything else on the apex (the marketing site) → proxied to `VERCEL_ORIGIN/<path>` with `x-altimist-host: <apex>` so corporate-website-v2 renders the marketing homepage (ADR-022; the apex `A` record points at the CF sink, so the Worker fronts it end-to-end). Staging mirrors this — the `altimist.dev` apex is fronted by the Worker too (ADR-022 ported to staging).
 
 The Worker is the **routing layer** per [ADR-012](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-012-adopt-separate-routing-layer-for-resolver-surface.md), refined into the **end-to-end-wildcard-owner shape** by [ADR-013](https://github.com/altimist/altimist-strategy/blob/main/decisions/ADR-013-take-vercel-off-altimist-com-wildcard.md) (Option D). The Vercel cert collision that triggered ADR-013 is documented there. Topology comparison: [`altimist-id/docs/architecture/future-architecture.md`](https://github.com/altimist/altimist-id/blob/main/docs/architecture/future-architecture.md).
 
-In production the Worker fronts the `altimist.com` apex **and** the `*.altimist.com` wildcard subdomains end-to-end — both DNS records point at the CF-only sink, and the Worker proxies non-resolver paths to the Vercel rendering backend (`VERCEL_ORIGIN`). `www.altimist.com` stays grey-cloud direct to Vercel and 307-redirects to the apex. (Earlier docs described the apex as "grey-cloud direct to Vercel"; that held until ADR-022 — the Vercel-origin-behind-CF apex couldn't auto-renew its TLS cert and went down, so the apex was moved behind the Worker too.) Staging fronts only the `*.altimist.dev` wildcard subdomains; the `altimist.dev` apex is served directly by Vercel.
+In production the Worker fronts the `altimist.com` apex **and** the `*.altimist.com` wildcard subdomains end-to-end — both DNS records point at the CF-only sink, and the Worker proxies non-resolver paths to the Vercel rendering backend (`VERCEL_ORIGIN`). `www.altimist.com` stays grey-cloud direct to Vercel and 307-redirects to the apex. (Earlier docs described the apex as "grey-cloud direct to Vercel"; that held until ADR-022 — the Vercel-origin-behind-CF apex couldn't auto-renew its TLS cert and went down, so the apex was moved behind the Worker too.) Staging now mirrors production: the Worker fronts the `altimist.dev` apex **and** the `*.altimist.dev` wildcard subdomains end-to-end (both DNS records point at the CF sink), proxying to the staging Vercel alias. `www.altimist.dev` sinks to the Worker, which 308-redirects it to the apex (ADR-022 ported to staging — the apex was previously a direct Vercel origin behind orange-cloud, the same latent cert trap ADR-022 closed in production).
 
 DID-resolution logic lives in [`@altimist/did-publisher`](https://github.com/altimist/did-publisher) v0.2+ (the `routeResolverRequest` export). The subdomain proxy branch lives in this repo's `src/index.ts` — it's outside did-publisher's concern (DID resolution) and small enough to keep inline.
 
@@ -226,7 +226,7 @@ Environment variables are set per-environment in [`wrangler.toml`](./wrangler.to
 |---|---|---|---|
 | `ALTIMIST_ID_ORIGIN` | Base URL for altimist-id Resolver API | `https://staging.altimist.id` | `https://altimist.id` |
 | `ALTIMIST_ID_APEX` | Host treated as "no handle here" | `altimist.dev` | `altimist.com` |
-| `VERCEL_ORIGIN` | Cert-stable rendering backend the proxy targets | `altimist.dev` | `corporate-website-v2-altimists-projects.vercel.app` |
+| `VERCEL_ORIGIN` | Cert-stable rendering backend the proxy targets | `corporate-website-v2-altimistdev-altimists-projects.vercel.app` | `corporate-website-v2-altimists-projects.vercel.app` |
 
 CI deploy needs a `CLOUDFLARE_API_TOKEN` GitHub secret (Workers-scoped). See [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml).
 
@@ -243,10 +243,12 @@ Bound via `wrangler.toml`. The wildcard DNS sinks to a CF-only target (`AAAA 100
 
 CF SSL/TLS encryption mode: **Full (strict)**. Changing from Flexible was required to avoid a CF↔Vercel HTTP→HTTPS redirect loop on the apex.
 
-**Staging (dedicated `altimist.dev` apex):**
+**Staging (dedicated `altimist.dev` apex) — mirrors production (ADR-022):**
 - `*.altimist.dev/*` → Worker (catch-all; same dispatch logic as production)
 - `altimist.dev/.well-known/*` → Worker (apex resolver surface)
 - `altimist.dev/users/*` → Worker (F-011 path-form, same shape as production)
+- `altimist.dev/*` → Worker (apex catch-all, ADR-022 ported to staging; non-resolver apex paths proxy to `VERCEL_ORIGIN` with `x-altimist-host: altimist.dev`. The apex `A` record was moved to the CF sink — no Vercel origin behind the apex, closing the same cert trap ADR-022 fixed in production.)
+- `www.altimist.dev` → sinks to the Worker, which 308-redirects to the apex
 
 The staging surface lives on `altimist.dev` rather than `staging.altimist.com` because (a) `altimist.dev` is the corporate-website-v2 staging environment anyway, and (b) a one-level wildcard is covered by free Universal SSL, whereas the previous two-level `*.staging.altimist.com` was not.
 
