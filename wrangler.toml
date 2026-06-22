@@ -14,8 +14,15 @@ workers_dev = true   # also publish to <name>.<account>.workers.dev for smoke te
 [env.staging.vars]
 ALTIMIST_ID_ORIGIN = "https://staging.altimist.id"
 ALTIMIST_ID_APEX = "altimist.dev"
+# Rendering backend. The apex (altimist.dev) is fronted by this Worker
+# end-to-end (its A record points at the CF-only sink; ADR-022 ported to
+# staging), so the proxy must target a cert-stable Vercel hostname instead of
+# the apex. This is corporate-website-v2's stable staging alias; its middleware
+# reads x-altimist-host to render the marketing site (apex) or a /public/<handle>
+# profile (subdomain).
+VERCEL_ORIGIN = "corporate-website-v2-altimistdev-altimists-projects.vercel.app"
 
-# Subdomain catch-all: proxied through to altimist.dev with x-altimist-host.
+# Subdomain catch-all: proxied through to VERCEL_ORIGIN with x-altimist-host.
 # Subsumes *.altimist.dev/.well-known/* (handled by the same Worker via
 # resolver dispatch in src/index.ts).
 [[env.staging.routes]]
@@ -37,6 +44,18 @@ zone_name = "altimist.dev"
 pattern = "altimist.dev/users/*"
 zone_name = "altimist.dev"
 
+# Apex catch-all (ADR-022, ported to staging): this Worker now fronts the
+# altimist.dev apex end-to-end, mirroring production. Resolver paths (the
+# more-specific routes above) dispatch to altimist-id; every other apex path is
+# proxied to VERCEL_ORIGIN with x-altimist-host: altimist.dev so the marketing
+# site renders. The apex A record points at the CF-only sink (AAAA 100::), so
+# without this route apex traffic would hit a dead origin. The more-specific
+# apex routes above are subsumed by this catch-all but kept as explicit,
+# defensive bindings.
+[[env.staging.routes]]
+pattern = "altimist.dev/*"
+zone_name = "altimist.dev"
+
 # F-011 path-form did.json. CF Worker route patterns only allow
 # wildcards at the start of the hostname OR end of the path, so we
 # can't bind `<apex>/users/*/did.json` directly (error code 10022 on
@@ -55,8 +74,15 @@ workers_dev = true   # exposes altimist-com-router-production.<account>.workers.
 [env.production.vars]
 ALTIMIST_ID_ORIGIN = "https://altimist.id"
 ALTIMIST_ID_APEX = "altimist.com"
+# Rendering backend. The apex (altimist.com) is fronted by this Worker
+# end-to-end (its A record points at the CF-only sink; ADR-022), so the proxy
+# must target a cert-stable Vercel hostname instead of the apex. This is
+# corporate-website-v2's stable production alias; its middleware reads
+# x-altimist-host to render the marketing site (apex) or a /public/<handle>
+# profile (subdomain).
+VERCEL_ORIGIN = "corporate-website-v2-altimists-projects.vercel.app"
 
-# Subdomain catch-all: proxied through to altimist.com with x-altimist-host.
+# Subdomain catch-all: proxied through to VERCEL_ORIGIN with x-altimist-host.
 # Subsumes *.altimist.com/.well-known/* (handled by the same Worker via
 # resolver dispatch in src/index.ts).
 [[env.production.routes]]
@@ -71,4 +97,16 @@ zone_name = "altimist.com"
 # CF route-pattern constraint that forces the broader `/users/*`.
 [[env.production.routes]]
 pattern = "altimist.com/users/*"
+zone_name = "altimist.com"
+
+# Apex catch-all (ADR-022): this Worker now fronts the altimist.com apex
+# end-to-end. Resolver paths (the two more-specific routes above) are dispatched
+# to altimist-id; every other apex path is proxied to VERCEL_ORIGIN (the
+# corporate-website-v2 rendering backend) with x-altimist-host: altimist.com so
+# the marketing site renders. The apex A record points at the CF-only sink
+# (AAAA 100::), so without this route apex traffic would hit a dead origin. The
+# two more-specific apex routes above are now subsumed by this catch-all but are
+# kept as explicit, defensive bindings.
+[[env.production.routes]]
+pattern = "altimist.com/*"
 zone_name = "altimist.com"
