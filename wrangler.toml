@@ -14,12 +14,15 @@ workers_dev = true   # also publish to <name>.<account>.workers.dev for smoke te
 [env.staging.vars]
 ALTIMIST_ID_ORIGIN = "https://staging.altimist.id"
 ALTIMIST_ID_APEX = "altimist.dev"
-# Rendering backend for the proxy. Staging keeps the apex (altimist.dev) as the
-# target: it is served directly by Vercel and is NOT fronted by this Worker
-# (there is no altimist.dev/* catch-all route), so proxying to it does not loop.
-VERCEL_ORIGIN = "altimist.dev"
+# Rendering backend. The apex (altimist.dev) is fronted by this Worker
+# end-to-end (its A record points at the CF-only sink; ADR-022 ported to
+# staging), so the proxy must target a cert-stable Vercel hostname instead of
+# the apex. This is corporate-website-v2's stable staging alias; its middleware
+# reads x-altimist-host to render the marketing site (apex) or a /public/<handle>
+# profile (subdomain).
+VERCEL_ORIGIN = "corporate-website-v2-altimistdev-altimists-projects.vercel.app"
 
-# Subdomain catch-all: proxied through to altimist.dev with x-altimist-host.
+# Subdomain catch-all: proxied through to VERCEL_ORIGIN with x-altimist-host.
 # Subsumes *.altimist.dev/.well-known/* (handled by the same Worker via
 # resolver dispatch in src/index.ts).
 [[env.staging.routes]]
@@ -39,6 +42,18 @@ zone_name = "altimist.dev"
 # else under /users/* returns null → the Worker's 404 fallback.
 [[env.staging.routes]]
 pattern = "altimist.dev/users/*"
+zone_name = "altimist.dev"
+
+# Apex catch-all (ADR-022, ported to staging): this Worker now fronts the
+# altimist.dev apex end-to-end, mirroring production. Resolver paths (the
+# more-specific routes above) dispatch to altimist-id; every other apex path is
+# proxied to VERCEL_ORIGIN with x-altimist-host: altimist.dev so the marketing
+# site renders. The apex A record points at the CF-only sink (AAAA 100::), so
+# without this route apex traffic would hit a dead origin. The more-specific
+# apex routes above are subsumed by this catch-all but kept as explicit,
+# defensive bindings.
+[[env.staging.routes]]
+pattern = "altimist.dev/*"
 zone_name = "altimist.dev"
 
 # F-011 path-form did.json. CF Worker route patterns only allow

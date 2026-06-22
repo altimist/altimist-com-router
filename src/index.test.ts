@@ -86,7 +86,7 @@ describe("altimist-com-router fetch handler", () => {
     const stagingEnv: Env = {
       ALTIMIST_ID_ORIGIN: "https://staging.id.altimist.ai",
       ALTIMIST_ID_APEX: "altimist.dev",
-      VERCEL_ORIGIN: "altimist.dev",
+      VERCEL_ORIGIN: "corporate-website-v2-altimistdev-altimists-projects.vercel.app",
     };
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -155,11 +155,11 @@ describe("altimist-com-router fetch handler", () => {
     );
   });
 
-  it("proxies subdomain non-resolver paths on staging to altimist.dev", async () => {
+  it("proxies subdomain non-resolver paths on staging to the staging Vercel alias", async () => {
     const stagingEnv: Env = {
       ALTIMIST_ID_ORIGIN: "https://staging.id.altimist.ai",
       ALTIMIST_ID_APEX: "altimist.dev",
-      VERCEL_ORIGIN: "altimist.dev",
+      VERCEL_ORIGIN: "corporate-website-v2-altimistdev-altimists-projects.vercel.app",
     };
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -169,10 +169,29 @@ describe("altimist-com-router fetch handler", () => {
     });
     await worker.fetch(req, stagingEnv);
     expect((fetchSpy.mock.calls[0][0] as Request).url).toBe(
-      "https://altimist.dev/profile",
+      "https://corporate-website-v2-altimistdev-altimists-projects.vercel.app/profile",
     );
     expect(
       (fetchSpy.mock.calls[0][0] as Request).headers.get("x-altimist-host"),
     ).toBe("patrick.altimist.dev");
+  });
+
+  it("308-redirects www.<apex> to the bare apex, preserving path and query", async () => {
+    const stagingEnv: Env = {
+      ALTIMIST_ID_ORIGIN: "https://staging.id.altimist.ai",
+      ALTIMIST_ID_APEX: "altimist.dev",
+      VERCEL_ORIGIN: "corporate-website-v2-altimistdev-altimists-projects.vercel.app",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const req = new Request("https://www.altimist.dev/pricing?ref=x", {
+      headers: { host: "www.altimist.dev" },
+    });
+    const res = await worker.fetch(req, stagingEnv);
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe(
+      "https://altimist.dev/pricing?ref=x",
+    );
+    // The redirect short-circuits before any resolver dispatch or proxy fetch.
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
